@@ -15,7 +15,7 @@ MainWindow::MainWindow(QWidget *parent)
     ui->cancelButton2->hide();
 
     QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE");
-    db.setDatabaseName("/Users/catherine/Downloads/m/mainwindow.db");
+    db.setDatabaseName("C://Users//User//OneDrive//Documents//GitHub//Simple-Student-Information-System-SSIS-2//m//mainwindow.db");
 
     if (!db.open()) {
         qDebug() << "Error opening database:" << db.lastError().text();
@@ -638,6 +638,21 @@ void MainWindow::on_saveButton2_clicked()
         return;
     }
 
+    // Check if the ID already exists in the database
+    QSqlQuery checkQuery(db);
+    checkQuery.prepare("SELECT CourseCode FROM Course2 WHERE CourseCode = :courseCode");
+    checkQuery.bindValue(":courseCode", courseCode);
+    if (!checkQuery.exec()) {
+        qDebug() << "Error executing query to check Course Code existence:" << checkQuery.lastError().text();
+        return;
+    }
+
+    if (checkQuery.next()) {
+        // Course Code already exists, display a message to the user
+        QMessageBox::warning(this, "Duplicate Course", "The entered Course already exists in the database.");
+        return;
+    }
+
     // Start a transaction to ensure data consistency
     db.transaction();
 
@@ -809,3 +824,78 @@ void MainWindow::onTabChanged(int index)
         db.close();
     }
 }
+
+void MainWindow::on_deleteButton2_clicked()
+{
+    // Get the selected row index
+    int selectedRow = ui->courseT->currentRow();
+    if (selectedRow < 0) {
+        // No row selected, display a message to the user
+        QMessageBox::warning(this, "No Row Selected", "Please select a row to delete.");
+        return;
+    }
+
+    // Retrieve the CourseCode of the selected row
+    QString courseCode = ui->courseT->item(selectedRow, 0)->text();
+
+    // Confirmation message box
+    QMessageBox::StandardButton confirmDelete;
+    confirmDelete = QMessageBox::question(this, "Confirm Deletion. Are you sure?", "The students that have this course will also be deleted.",
+                                          QMessageBox::Yes | QMessageBox::No);
+    if (confirmDelete == QMessageBox::No) {
+        // User clicked No, do nothing
+        return;
+    }
+
+    // Open the database connection
+    QSqlDatabase db = QSqlDatabase::database();
+    if (!db.isOpen()) {
+        qDebug() << "Database not open!";
+        return;
+    }
+
+    // Start a transaction to ensure data consistency
+    db.transaction();
+
+    // Prepare the DELETE query for Course2 table
+    QSqlQuery courseQuery(db);
+    courseQuery.prepare("DELETE FROM Course2 WHERE CourseCode = :courseCode");
+    courseQuery.bindValue(":courseCode", courseCode);
+
+    // Execute the DELETE query for Course2 table
+    if (!courseQuery.exec()) {
+        qDebug() << "Error executing DELETE query for Course2 table:" << courseQuery.lastError().text();
+        // Rollback the transaction if an error occurs
+        db.rollback();
+        return;
+    }
+
+    // Prepare the DELETE query for Students1 table
+    QSqlQuery deleteStudentsQuery(db);
+    deleteStudentsQuery.prepare("DELETE FROM Students1 WHERE CourseCode = :courseCode");
+    deleteStudentsQuery.bindValue(":courseCode", courseCode);
+
+    // Execute the DELETE query for Students1 table
+    if (!deleteStudentsQuery.exec()) {
+        qDebug() << "Error executing DELETE query for Students1 table:" << deleteStudentsQuery.lastError().text();
+        // Rollback the transaction if an error occurs
+        db.rollback();
+        return;
+    }
+
+    // Commit the transaction
+    db.commit();
+
+    // Remove the selected row from the course table widget
+    ui->courseT->removeRow(selectedRow);
+
+    // Clear input fields after successful deletion
+    clearInputFields2();
+
+    // Hide the save and cancel buttons
+    ui->saveButton2->hide();
+    ui->cancelButton2->hide();
+    db.close();
+}
+
+
