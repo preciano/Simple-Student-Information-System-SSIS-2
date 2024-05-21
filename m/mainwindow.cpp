@@ -15,7 +15,7 @@ MainWindow::MainWindow(QWidget *parent)
     ui->cancelButton2->hide();
 
     QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE");
-    db.setDatabaseName("C://Users//User//OneDrive//Documents//GitHub//Simple-Student-Information-System-SSIS-2//m//mainwindow.db");
+    db.setDatabaseName("/Users/catherine/Downloads/Simple-Student-Information-System-SSIS-2/m/mainwindow.db");
 
     if (!db.open()) {
         qDebug() << "Error opening database:" << db.lastError().text();
@@ -57,9 +57,6 @@ MainWindow::MainWindow(QWidget *parent)
 
         row++;
     }
-
-
-    //ui->tableWidget->resizeColumnsToContents();
 
     query.finish();
 
@@ -838,14 +835,6 @@ void MainWindow::on_deleteButton2_clicked()
     // Retrieve the CourseCode of the selected row
     QString courseCode = ui->courseT->item(selectedRow, 0)->text();
 
-    // Confirmation message box
-    QMessageBox::StandardButton confirmDelete;
-    confirmDelete = QMessageBox::question(this, "Confirm Deletion. Are you sure?", "The students that have this course will also be deleted.",
-                                          QMessageBox::Yes | QMessageBox::No);
-    if (confirmDelete == QMessageBox::No) {
-        // User clicked No, do nothing
-        return;
-    }
 
     // Open the database connection
     QSqlDatabase db = QSqlDatabase::database();
@@ -857,27 +846,27 @@ void MainWindow::on_deleteButton2_clicked()
     // Start a transaction to ensure data consistency
     db.transaction();
 
-    // Prepare the DELETE query for Course2 table
-    QSqlQuery courseQuery(db);
-    courseQuery.prepare("DELETE FROM Course2 WHERE CourseCode = :courseCode");
-    courseQuery.bindValue(":courseCode", courseCode);
+    // Prepare the DELETE query for the course
+    QSqlQuery deleteQuery(db);
+    deleteQuery.prepare("DELETE FROM Course2 WHERE CourseCode = :courseCode");
+    deleteQuery.bindValue(":courseCode", courseCode);
 
-    // Execute the DELETE query for Course2 table
-    if (!courseQuery.exec()) {
-        qDebug() << "Error executing DELETE query for Course2 table:" << courseQuery.lastError().text();
+    // Execute the query
+    if (!deleteQuery.exec()) {
+        qDebug() << "Error executing DELETE query for course:" << deleteQuery.lastError().text();
         // Rollback the transaction if an error occurs
         db.rollback();
         return;
     }
 
-    // Prepare the DELETE query for Students1 table
-    QSqlQuery deleteStudentsQuery(db);
-    deleteStudentsQuery.prepare("DELETE FROM Students1 WHERE CourseCode = :courseCode");
-    deleteStudentsQuery.bindValue(":courseCode", courseCode);
+    // Prepare the UPDATE query to set CourseCode to NULL for students
+    QSqlQuery updateQuery(db);
+    updateQuery.prepare("UPDATE Students1 SET CourseCode = NULL WHERE CourseCode = :courseCode");
+    updateQuery.bindValue(":courseCode", courseCode);
 
-    // Execute the DELETE query for Students1 table
-    if (!deleteStudentsQuery.exec()) {
-        qDebug() << "Error executing DELETE query for Students1 table:" << deleteStudentsQuery.lastError().text();
+    // Execute the query
+    if (!updateQuery.exec()) {
+        qDebug() << "Error executing UPDATE query to set CourseCode to NULL:" << updateQuery.lastError().text();
         // Rollback the transaction if an error occurs
         db.rollback();
         return;
@@ -886,15 +875,9 @@ void MainWindow::on_deleteButton2_clicked()
     // Commit the transaction
     db.commit();
 
-    // Remove the selected row from the course table widget
+    // Remove the selected row from the table widget
     ui->courseT->removeRow(selectedRow);
 
-    // Clear input fields after successful deletion
-    clearInputFields2();
-
-    // Hide the save and cancel buttons
-    ui->saveButton2->hide();
-    ui->cancelButton2->hide();
     db.close();
 }
 
